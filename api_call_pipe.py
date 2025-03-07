@@ -4,13 +4,13 @@ from schemas import OpenAIChatMessage
 import requests
 import re
 import json
-from datetime import datetime
 
 class Pipeline:
     class Valves(BaseModel):
         pass
 
     def __init__(self):
+        # Let the id be inferred from the filename (api_call_pipe.py)
         self.name = "OllamaModelListPipeline"
         self.valves = self.Valves(**{})
 
@@ -25,10 +25,10 @@ class Pipeline:
     def pipe(
         self, user_message: str, model_id: str, messages: List[dict], body: dict
     ) -> Union[str, Generator, Iterator]:
-        print(f"pipe: {__name__}")
+        print(f"pipe: {__name__} - user_message: {user_message}")
 
-        # Check for integration request in the last message
-        last_message = messages[-1].get("content", "") if messages else ""
+        # Check the last message for the integration request
+        last_message = messages[-1].get("content", "") if messages and messages[-1].get("content") else user_message
         pattern = r"INTEGRATION_REQUEST_ActionStart \| REQ_(\d{8}_\d{6}) \| GET (http[s]?://\S+)"
         match = re.match(pattern, last_message)
         if not match:
@@ -39,7 +39,7 @@ class Pipeline:
 
         # Call the Ollama API
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
@@ -50,8 +50,8 @@ class Pipeline:
         return action_end
 
 if __name__ == "__main__":
-    # Example usage for testing
-    test_message = {"content": "INTEGRATION_REQUEST_ActionStart | REQ_20250307_205435 | GET http://192.168.0.25:11434/api/tags"}
+    # Test the pipeline locally
+    test_message = {"role": "user", "content": "INTEGRATION_REQUEST_ActionStart | REQ_20250307_205435 | GET http://192.168.0.25:11434/api/tags"}
     pipeline = Pipeline()
     result = pipeline.pipe("", "", [test_message], {})
     print(result)
